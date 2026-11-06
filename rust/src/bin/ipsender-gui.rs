@@ -200,6 +200,7 @@ fn run_tray_thread(tx: Sender<GuiMsg>) {
             .with_icon(icon)
             .with_menu(Box::new(menu))
             .with_tooltip("IPsender")
+            .with_menu_on_left_click(false) // 左键直接触发 Click 事件而非弹菜单
             .build()
         {
             Ok(t) => t,
@@ -220,13 +221,19 @@ fn run_tray_thread(tx: Sender<GuiMsg>) {
                 }
             }
             while let Ok(ev) = TrayIconEvent::receiver().try_recv() {
-                if let TrayIconEvent::Click {
-                    button: MouseButton::Left,
-                    button_state: MouseButtonState::Up,
-                    ..
-                } = ev
-                {
-                    let _ = tx.send(GuiMsg::Show);
+                match ev {
+                    TrayIconEvent::Click {
+                        button: MouseButton::Left,
+                        button_state: MouseButtonState::Up,
+                        ..
+                    }
+                    | TrayIconEvent::DoubleClick {
+                        button: MouseButton::Left,
+                        ..
+                    } => {
+                        let _ = tx.send(GuiMsg::Show);
+                    }
+                    _ => {}
                 }
             }
             thread::sleep(Duration::from_millis(200));
