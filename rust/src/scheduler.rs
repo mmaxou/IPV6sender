@@ -1,6 +1,6 @@
 //! 轻量级定时调度器（对应 Python 版 SimpleScheduler）。
 
-use chrono::{Datelike, Local, TimeZone, Timelike};
+use chrono::{Local, TimeZone};
 use std::time::{Duration, Instant};
 
 enum JobKind {
@@ -117,6 +117,7 @@ fn today_at(now: chrono::DateTime<Local>, hour: u32, minute: u32) -> chrono::Dat
 #[cfg(test)]
 mod tests {
     use super::*;
+    use chrono::Timelike;
 
     #[test]
     fn daily_at_rejects_invalid_time() {

@@ -135,7 +135,7 @@ fn strip_status_suffix(s: &str) -> &str {
 fn get_ipv6_via_socket() -> Vec<IpItem> {
     let mut results = Vec::new();
     let hostname = match hostname::get() {
-        Ok(h) => format!("{}", h),
+        Ok(h) => h.to_string_lossy().into_owned(),
         Err(_) => return results,
     };
 

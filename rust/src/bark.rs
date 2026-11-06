@@ -63,8 +63,8 @@ pub fn send_notification(
     let agent = ureq::AgentBuilder::new().timeout(timeout).build();
     let resp = agent
         .post(&url)
-        .header("Content-Type", "application/json; charset=utf-8")
-        .header("User-Agent", "IPsender/1.0")
+        .set("Content-Type", "application/json; charset=utf-8")
+        .set("User-Agent", "IPsender/1.0")
         .send_string(&body);
 
     match resp {
