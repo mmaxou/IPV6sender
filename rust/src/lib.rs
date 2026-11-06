@@ -25,8 +25,20 @@ pub fn base_dir() -> PathBuf {
 }
 
 /// 默认配置文件路径。
+///
+/// 查找顺序：exe 同目录 -> 当前工作目录 -> （最后回退到 exe 同目录）。
 pub fn default_config_path() -> PathBuf {
-    base_dir().join("config.json")
+    let exe_cfg = base_dir().join("config.json");
+    if exe_cfg.exists() {
+        return exe_cfg;
+    }
+    if let Ok(cwd) = std::env::current_dir() {
+        let cwd_cfg = cwd.join("config.json");
+        if cwd_cfg.exists() {
+            return cwd_cfg;
+        }
+    }
+    exe_cfg
 }
 
 /// 默认状态文件路径。

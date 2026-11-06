@@ -6,28 +6,9 @@ on:
   workflow_dispatch:
 
 jobs:
-  cli:
-    name: Build CLI (Windows)
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@stable
-
-      - name: Build CLI binary (Windows)
-        run: cargo build --release --no-default-features --bin ipsender
-        working-directory: rust
-
-      - name: Upload CLI artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ipsender-cli-windows
-          path: rust/target/release/ipsender.exe
-          if-no-files-found: error
-
+  # 仅构建 GUI（Windows），并在产物中附带 config.example.json
   gui:
-    name: Build GUI
+    name: Build GUI (Windows)
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -39,14 +20,21 @@ jobs:
         run: cargo build --release --features gui --bin ipsender-gui
         working-directory: rust
 
+      - name: Bundle config template with GUI
+        shell: pwsh
+        run: Copy-Item ..\config.example.json target\release\config.example.json -Force
+        working-directory: rust
+
       - name: Upload GUI artifact
         uses: actions/upload-artifact@v4
         with:
           name: ipsender-gui-windows
-          path: rust/target/release/ipsender-gui.exe
+          path: |
+            rust/target/release/ipsender-gui.exe
+            rust/target/release/config.example.json
           if-no-files-found: error
 
-  # 核心库与 CLI：在 Ubuntu 上检查并跑测试（默认 feature 含 GUI，故显式 --no-default-features，避免拉取依赖系统库的 tray-icon/glib）
+  # 核心逻辑单元测试（只跑测试，不产出二进制）
   test:
     name: Test (cargo test + check)
     runs-on: ubuntu-latest

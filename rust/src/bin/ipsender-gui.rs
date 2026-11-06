@@ -12,6 +12,7 @@
 
 use eframe::egui::{self, Color32, RichText};
 use ipsender::bark;
+use ipsender::base_dir;
 use ipsender::config::{load_config, Config};
 use ipsender::daemon::DaemonController;
 use ipsender::ipv6;
@@ -209,6 +210,92 @@ fn run_tray_thread(tx: Sender<GuiMsg>) {
 fn run_tray_thread(_tx: Sender<GuiMsg>) {}
 
 // ---------------------------------------------------------------------------
+// 中文字体加载（egui 默认字体不含 CJK 字形，需回退字体）
+// ---------------------------------------------------------------------------
+
+#[cfg(windows)]
+fn load_cjk_font() -> Option<egui::FontData> {
+    const CANDIDATES: &[&str] = &[
+        r"C:\Windows\Fonts\simhei.ttf",
+        r"C:\Windows\Fonts\msyh.ttf",
+        r"C:\Windows\Fonts\Deng.ttf",
+        r"C:\Windows\Fonts\msyh.ttc",
+        r"C:\Windows\Fonts\msyhl.ttc",
+    ];
+    for p in CANDIDATES {
+        if let Ok(bytes) = std::fs::read(p) {
+            // 仅接受能被解析为合法字体的文件（.ttc 集合 ab_glyph 未必支持）
+            if ab_glyph::FontArc::try_from_vec(bytes.clone()).is_ok() {
+                return Some(egui::FontData::from_owned(bytes));
+            }
+        }
+    }
+    None
+}
+
+#[cfg(not(windows))]
+fn load_cjk_font() -> Option<egui::FontData> {
+    None
+}
+
+fn setup_fonts(cc: &eframe::CreationContext) {
+    let mut fonts = egui::FontDefinitions::default();
+    if let Some(fd) = load_cjk_font() {
+        fonts.font_data.insert("cjk-fallback".to_owned(), fd);
+        for fam in [
+            egui::FontFamily::Proportional,
+            egui::FontFamily::Monospace,
+        ] {
+            fonts
+                .families
+                .entry(fam)
+                .or_default()
+                .push("cjk-fallback".to_owned());
+        }
+    }
+    cc.egui_ctx.set_fonts(fonts);
+}
+
+// ---------------------------------------------------------------------------
+// 配置加载：默认路径不存在时自动从 config.example.json 播种
+// ---------------------------------------------------------------------------
+
+fn find_example_config() -> Option<std::path::PathBuf> {
+    let candidates = [
+        base_dir().join("config.example.json"),
+        std::env::current_dir().unwrap_or_default().join("config.example.json"),
+    ];
+    for c in candidates {
+        if c.exists() {
+            return Some(c);
+        }
+    }
+    None
+}
+
+fn load_or_seed_config() -> Option<Config> {
+    let path = default_config_path();
+    if let Ok(c) = load_config(&path) {
+        return Some(c);
+    }
+    if let Some(example) = find_example_config() {
+        if !path.exists() {
+            if std::fs::copy(&example, &path).is_ok() {
+                log::info!(
+                    "未找到 config.json，已从 {} 生成默认配置 {}",
+                    example.display(),
+                    path.display()
+                );
+                if let Ok(c) = load_config(&path) {
+                    return Some(c);
+                }
+            }
+        }
+    }
+    None
+}
+
+// ---------------------------------------------------------------------------
 // 主窗口
 // ---------------------------------------------------------------------------
 
@@ -224,8 +311,10 @@ struct App {
 }
 
 impl App {
-    fn new(rx: Receiver<GuiMsg>) -> Self {
-        let cfg = load_config(default_config_path()).ok();
+    fn new(cc: &eframe::CreationContext, rx: Receiver<GuiMsg>) -> Self {
+        setup_fonts(cc);
+
+        let cfg = load_or_seed_config();
         let autostart_on = autostart_enabled();
 
         if cfg.is_none() {
@@ -483,7 +572,7 @@ fn main() {
 
     // eframe 0.27：创建闭包直接返回 Box<dyn App>（不是 Result）
     let creator = Box::new(move |_cc: &eframe::CreationContext| -> Box<dyn eframe::App> {
-        Box::new(App::new(rx))
+        Box::new(App::new(_cc, rx))
     });
 
     if let Err(e) = eframe::run_native("IPsender", options, creator) {
