@@ -146,7 +146,7 @@ fn autostart_set(_enable: bool) -> bool {
 fn init_com_for_tray() -> bool {
     unsafe {
         use windows_sys::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
-        CoInitializeEx(std::ptr::null::<std::ffi::c_void>(), COINIT_MULTITHREADED) >= 0
+        CoInitializeEx(std::ptr::null::<std::ffi::c_void>(), COINIT_MULTITHREADED as u32) >= 0
     }
 }
 
