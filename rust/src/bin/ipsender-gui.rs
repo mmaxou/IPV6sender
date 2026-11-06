@@ -112,7 +112,7 @@ fn autostart_set(enable: bool) -> bool {
         match std::env::current_exe() {
             Ok(exe) => {
                 let cmd = format!("\"{}\"", exe.display());
-                key.set_value(APP_NAME, &cmd).is_ok()
+                key.set_value(APP_NAME, cmd.as_str()).is_ok()
             }
             Err(_) => false,
         }
@@ -430,7 +430,41 @@ impl eframe::App for App {
     }
 }
 
+/// 打开（或创建）位于可执行文件旁的错误日志文件。
+fn error_log_file() -> Option<std::fs::File> {
+    let exe = std::env::current_exe().ok()?;
+    let dir = exe.parent()?;
+    let path = dir.join("ipsender-gui-error.log");
+    std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(path)
+        .ok()
+}
+
+/// 安装 panic 处理器：把崩溃信息写入日志文件，便于排查无控制台的"闪退"。
+fn install_panic_log() {
+    let prev = std::panic::take_hook();
+    std::panic::set_hook(Box::new(move |info| {
+        if let Some(mut f) = error_log_file() {
+            use std::io::Write;
+            let _ = writeln!(f, "[panic] {}", info);
+        }
+        prev(info);
+    }));
+}
+
+/// 记录启动阶段的错误。
+fn log_startup_error(msg: &str) {
+    if let Some(mut f) = error_log_file() {
+        use std::io::Write;
+        let _ = writeln!(f, "[startup] {}", msg);
+    }
+}
+
 fn main() {
+    install_panic_log();
+
     let (tx, rx) = channel::<GuiMsg>();
     let _ = MSG_TX.set(tx.clone());
 
@@ -447,15 +481,15 @@ fn main() {
         ..Default::default()
     };
 
-    let creator = Box::new(move |_cc: &eframe::CreationContext| -> Result<Box<dyn eframe::App>, Box<dyn std::error::Error + Send + Sync>> {
-        Ok(Box::new(App::new(rx)))
+    // eframe 0.27：创建闭包直接返回 Box<dyn App>（不是 Result）
+    let creator = Box::new(move |_cc: &eframe::CreationContext| -> Box<dyn eframe::App> {
+        Box::new(App::new(rx))
     });
 
-    match eframe::run_native("IPsender", options, creator) {
-        Ok(()) => {}
-        Err(e) => {
-            eprintln!("GUI 启动失败: {e}");
-            std::process::exit(1);
-        }
+    if let Err(e) = eframe::run_native("IPsender", options, creator) {
+        let msg = format!("GUI 启动失败: {e}");
+        log_startup_error(&msg);
+        eprintln!("{msg}");
+        std::process::exit(1);
     }
 }

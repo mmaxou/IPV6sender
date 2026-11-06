@@ -7,29 +7,23 @@ on:
 
 jobs:
   cli:
-    name: Build CLI (${{ matrix.os }})
-    runs-on: ${{ matrix.os }}
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
+    name: Build CLI (Windows)
+    runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
 
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
 
-      - name: Build CLI binary
+      - name: Build CLI binary (Windows)
         run: cargo build --release --no-default-features --bin ipsender
         working-directory: rust
 
       - name: Upload CLI artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ipsender-cli-${{ matrix.os }}
-          path: |
-            rust/target/release/ipsender
-            rust/target/release/ipsender.exe
+          name: ipsender-cli-windows
+          path: rust/target/release/ipsender.exe
           if-no-files-found: error
 
   gui:
@@ -52,6 +46,7 @@ jobs:
           path: rust/target/release/ipsender-gui.exe
           if-no-files-found: error
 
+  # 核心库与 CLI：在 Ubuntu 上检查并跑测试（默认 feature 含 GUI，故显式 --no-default-features，避免拉取依赖系统库的 tray-icon/glib）
   test:
     name: Test (cargo test + check)
     runs-on: ubuntu-latest
@@ -60,9 +55,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - name: cargo check (no GUI)
         run: cargo check --no-default-features
-        working-directory: rust
-      - name: cargo check (with GUI)
-        run: cargo check --features gui
         working-directory: rust
       - name: cargo test (core logic)
         run: cargo test --no-default-features
