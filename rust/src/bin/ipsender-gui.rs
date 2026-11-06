@@ -1,3 +1,5 @@
+#![windows_subsystem = "windows"]
+
 //! IPsender 图形界面版（对应 Python 版 gui.py）。
 //!
 //! 功能：
@@ -142,6 +144,11 @@ fn autostart_set(_enable: bool) -> bool {
 #[cfg(windows)]
 fn run_tray_thread(tx: Sender<GuiMsg>) {
     thread::spawn(move || {
+        // Windows 上创建托盘图标前必须先初始化 COM，否则图标不会出现
+        let _com = match tray_icon::util::initialize_com() {
+            Ok(g) => g,
+            Err(_) => return,
+        };
         use tray_icon::menu::{Menu, MenuItem};
         use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
@@ -419,7 +426,15 @@ impl eframe::App for App {
         }
         for msg in actions {
             match msg {
-                GuiMsg::Log(text, color) => self.log_lines.push((text, color)),
+                GuiMsg::Log(text, color) => {
+                    self.log_lines.push((text, color));
+                    // 限制日志条数，防止长期运行内存无限增长
+                    const MAX_LOG: usize = 800;
+                    if self.log_lines.len() > MAX_LOG {
+                        let excess = self.log_lines.len() - MAX_LOG;
+                        self.log_lines.drain(..excess);
+                    }
+                }
                 GuiMsg::Ip(ip) => self.current_ip = ip,
                 GuiMsg::Show => {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
