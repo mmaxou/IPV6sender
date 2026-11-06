@@ -141,14 +141,27 @@ fn autostart_set(_enable: bool) -> bool {
 // 系统托盘（Windows）
 // ---------------------------------------------------------------------------
 
+/// Windows 下初始化 COM（tray-icon 创建托盘前需要）。返回是否成功。
+#[cfg(windows)]
+fn init_com_for_tray() -> bool {
+    unsafe {
+        use windows_sys::Win32::System::Com::{CoInitializeEx, COINIT_MULTITHREADED};
+        CoInitializeEx(std::ptr::null::<std::ffi::c_void>(), COINIT_MULTITHREADED) >= 0
+    }
+}
+
+#[cfg(not(windows))]
+fn init_com_for_tray() -> bool {
+    true
+}
+
 #[cfg(windows)]
 fn run_tray_thread(tx: Sender<GuiMsg>) {
     thread::spawn(move || {
-        // Windows 上创建托盘图标前必须先初始化 COM，否则图标不会出现
-        let _com = match tray_icon::util::initialize_com() {
-            Ok(g) => g,
-            Err(_) => return,
-        };
+        if !init_com_for_tray() {
+            log::error!("初始化 COM 失败，托盘图标不可用");
+            return;
+        }
         use tray_icon::menu::{Menu, MenuItem};
         use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
@@ -169,22 +182,26 @@ fn run_tray_thread(tx: Sender<GuiMsg>) {
         }
         let icon = match Icon::from_rgba(rgba, 64, 64) {
             Ok(i) => i,
-            Err(_) => return,
+            Err(e) => {
+                log::error!("托盘图标生成失败: {e:?}");
+                return;
+            }
         };
 
         let show = MenuItem::new("显示窗口", true, None);
         let quit = MenuItem::new("退出", true, None);
         let menu = Menu::new();
-        if menu.append_items(&[&show, &quit]).is_err() {
+        if let Err(e) = menu.append_items(&[&show, &quit]) {
+            log::error!("托盘菜单创建失败: {e:?}");
             return;
         }
-        if TrayIconBuilder::new()
+        if let Err(e) = TrayIconBuilder::new()
             .with_icon(icon)
             .with_menu(Box::new(menu))
             .with_tooltip("IPsender")
             .build()
-            .is_err()
         {
+            log::error!("托盘图标注册失败: {e:?}");
             return;
         }
 

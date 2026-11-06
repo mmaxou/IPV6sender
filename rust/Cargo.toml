@@ -39,6 +39,7 @@ ab_glyph = { version = "0.2", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 winreg = "0.52"
+windows-sys = { version = "0.52", features = ["Win32_System_Com"] }
 
 [profile.release]
 opt-level = 3
