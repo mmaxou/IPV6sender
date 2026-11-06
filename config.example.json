@@ -1,0 +1,29 @@
+{
+    "bark": {
+        "server": "https://api.day.app",
+        "key": "YOUR_BARK_KEY",
+        "timeout": 15
+    },
+    "notification": {
+        "title": "[IPsender] 本机IPv6地址更新",
+        "title_daily": "[IPsender] 每日IPv6地址报告",
+        "title_changed": "[IPsender] IPv6地址已变化!",
+        "group": "IPsender",
+        "sound": "",
+        "icon": "",
+        "level": ""
+    },
+    "schedule": {
+        "enabled": true,
+        "check_interval_minutes": 5,
+        "daily_enabled": true,
+        "daily_time": "08:00",
+        "change_detection": true
+    },
+    "filter": {
+        "exclude_link_local": true,
+        "exclude_loopback": true,
+        "interfaces": [],
+        "address_suffix": ""
+    }
+}

@@ -1,0 +1,15 @@
+# 敏感配置文件（含 Bark Key，不要提交）
+config.json
+
+# 运行时状态文件
+state.json
+
+# Rust 构建产物
+rust/target/
+
+# 沙箱 ACL 修复备份
+_acl_recovery/
+
+# SSH 密钥（工作区本地生成，勿提交）
+.ssh/
+_known_hosts

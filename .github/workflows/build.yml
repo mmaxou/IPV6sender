@@ -1,0 +1,69 @@
+name: build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  cli:
+    name: Build CLI (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build CLI binary
+        run: cargo build --release --no-default-features --bin ipsender
+        working-directory: rust
+
+      - name: Upload CLI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipsender-cli-${{ matrix.os }}
+          path: |
+            rust/target/release/ipsender
+            rust/target/release/ipsender.exe
+          if-no-files-found: error
+
+  gui:
+    name: Build GUI
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Build GUI binary (Windows)
+        run: cargo build --release --features gui --bin ipsender-gui
+        working-directory: rust
+
+      - name: Upload GUI artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ipsender-gui-windows
+          path: rust/target/release/ipsender-gui.exe
+          if-no-files-found: error
+
+  test:
+    name: Test (cargo test + check)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: cargo check (no GUI)
+        run: cargo check --no-default-features
+        working-directory: rust
+      - name: cargo check (with GUI)
+        run: cargo check --features gui
+        working-directory: rust
+      - name: cargo test (core logic)
+        run: cargo test --no-default-features
+        working-directory: rust

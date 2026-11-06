@@ -1,0 +1,40 @@
+[package]
+name = "ipsender"
+version = "1.0.0"
+edition = "2021"
+description = "自动获取本机 IPv6 地址并通过 Bark 推送通知（Rust 重写版）"
+license = "MIT"
+
+# 核心库：供 CLI 与 GUI 两个二进制共用
+[lib]
+name = "ipsender"
+path = "src/lib.rs"
+
+[[bin]]
+name = "ipsender"
+path = "src/bin/ipsender.rs"
+
+# GUI 二进制（依赖 eframe 等重依赖，通过 feature 开关隔离，便于 CLI 快速构建）
+[[bin]]
+name = "ipsender-gui"
+path = "src/bin/ipsender-gui.rs"
+required-features = ["gui"]
+
+[features]
+default = ["gui"]
+gui = ["dep:eframe", "dep:tray-icon"]
+
+[dependencies]
+log = "0.4"
+env_logger = "0.11"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+ureq = "2"
+chrono = { version = "0.4", features = ["clock"] }
+hostname = "0.4"
+
+eframe = { version = "0.27", optional = true }
+tray-icon = { version = "0.15", optional = true }
+
+[target.'cfg(windows)'.dependencies]
+winreg = "0.52"
