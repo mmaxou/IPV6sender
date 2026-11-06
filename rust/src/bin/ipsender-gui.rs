@@ -195,15 +195,19 @@ fn run_tray_thread(tx: Sender<GuiMsg>) {
             log::error!("托盘菜单创建失败: {e:?}");
             return;
         }
-        if let Err(e) = TrayIconBuilder::new()
+        // 必须持有 TrayIcon 使其保持存活；一旦被 drop，托盘图标立即移除。
+        let _tray = match TrayIconBuilder::new()
             .with_icon(icon)
             .with_menu(Box::new(menu))
             .with_tooltip("IPsender")
             .build()
         {
-            log::error!("托盘图标注册失败: {e:?}");
-            return;
-        }
+            Ok(t) => t,
+            Err(e) => {
+                log::error!("托盘图标注册失败: {e:?}");
+                return;
+            }
+        };
 
         loop {
             while let Ok(ev) = tray_icon::menu::MenuEvent::receiver().try_recv() {
@@ -455,6 +459,8 @@ impl eframe::App for App {
                 GuiMsg::Ip(ip) => self.current_ip = ip,
                 GuiMsg::Show => {
                     ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
+                    // 恢复窗口并带到前台
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
                 }
                 GuiMsg::Quit => self.quit_requested = true,
             }
