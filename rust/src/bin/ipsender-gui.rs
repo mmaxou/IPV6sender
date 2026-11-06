@@ -112,7 +112,7 @@ fn autostart_set(enable: bool) -> bool {
         match std::env::current_exe() {
             Ok(exe) => {
                 let cmd = format!("\"{}\"", exe.display());
-                key.set_value(APP_NAME, cmd.as_str()).is_ok()
+                key.set_value(APP_NAME, &cmd).is_ok()
             }
             Err(_) => false,
         }
